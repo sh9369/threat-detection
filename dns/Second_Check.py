@@ -3,7 +3,7 @@
 
 import json
 import datetime
-from conf import ES_config
+from conf import ES_config, log
 
 def query_last(es,gte,lte,time_zone,dip):
 	search_option = {
@@ -135,6 +135,9 @@ def main(es,gte,lte,time_zone,dip):
 	# 根据第一次检查的结果，获取当前时间的指定 dip 的 TCP 连接的所有 sip ，得到 sip_list
 	result = query_last(es=es,gte=gte,lte=lte,time_zone=time_zone,dip=dip)
 	sip_list = []
+	if 'aggregations' not in result:
+		log.error('[mal_dns] Index {0} not exists.'.format(ES_config["tcp_index"]))
+		return[]
 	for sip in result["aggregations"]["sip"]["buckets"]:
 		sip_list.append(sip["key"])
 
@@ -145,6 +148,7 @@ def main(es,gte,lte,time_zone,dip):
 	res = get_date_flow(es=es,gte=gt,lte=lte,time_zone=time_zone,dip=dip,sip_list=sip_list)
 
 	ret_siplist = []
+
 	# 循环对每组 sip-dip 进行分析
 	for sip_item in res["aggregations"]["sip"]["buckets"]:
 		# 该组 sip-dip 的数据量太小则不再进一步分析
