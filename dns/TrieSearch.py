@@ -5,7 +5,7 @@ from elasticsearch import Elasticsearch
 import json,re
 import datetime,sys,os
 from blacklist_tools import load_dict,create_Trie
-from conf import set_data_path,ES_config,log,syslogger,ES_client,get_others_config
+from conf import set_data_path,ES_config,log,syslogger,ES_client,get_others_config,get_dept_info,get_ipip_geo
 import Second_Check
 
 data_path = set_data_path()
@@ -250,6 +250,7 @@ def main(gte,lte,timestamp,time_zone):
 				doc = dict(blacklist[domain])
 				source = doc.pop('source')
 				doc['domain'] = domain_es
+				doc['eventid'] = 102002
 				doc['@timestamp'] = timestamp
 				doc['level'] = "info"
 				doc['type'] = "mal_dns"
@@ -269,33 +270,51 @@ def main(gte,lte,timestamp,time_zone):
 					answer_list = sip_answer_dict[sip]
 					doc['level'] = "info"
 					doc['sip'] = sip
-					doc['answer'] = answer_list
+					doc['src_dept'] = get_dept_info(sip)
 			
 					dip_list = []
 					for answer in answer_list:
+						doc['answer'] = answer
+
 						if ipv4_pattern.findall(answer):
 							dip_list.append(answer)
-					if dip_list:
-						doc['dip'] = dip_list
-					else:
+							doc['dip'] = answer
+							dipGeo = get_ipip_geo(answer)
+							doc['dst_country'] = dipGeo[0]
+							doc['dst_province'] = dipGeo[1]
+						else:
+							doc.pop( "dip", "")
+							doc.pop( "dst_country", "")
+							doc.pop( "dst_province", "")
+
+						es.es_index(doc)
+						if syslogger:
+							syslogger.info(doc)
+
 						doc.pop( "dip", "")
+						doc.pop( "answer", "")
 
-					es.es_index(doc)
-					if syslogger:
-						syslogger.info(doc)
-#					print doc
-
-					doc.pop( "answer", "")
 					for dip in dip_list:
 						sip_list = es.second_check(gte=gte,lte=lte,time_zone=time_zone,dip=dip)
 #						print sip_list
-						if sip_list:
+						for sip in sip_list:
 							doc['dip'] = dip
-							doc["sip"] = sip_list
+							doc["sip"] = sip
+							doc['src_dept'] = get_dept_info(sip)
+							dipGeo = get_ipip_geo(dip)
+							doc['dst_country'] = dipGeo[0]
+							doc['dst_province'] = dipGeo[1]
 							doc["level"] = "warn"
 							es.es_index(doc)
 							if syslogger:
 								syslogger.info(doc)
+
+							doc.pop( "dip", "")
+							doc.pop( "sip", "")
+							doc.pop( "level", "")
+							doc.pop( "src_dept", "")
+							doc.pop( "dst_country", "")
+							doc.pop( "dst_province", "")
 		except Exception as e:
 			log.error("Insert the alert of threat DNS to ES failed.\n{0}".format(e))
 			raise e

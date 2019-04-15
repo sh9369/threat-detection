@@ -1,7 +1,12 @@
+#! /usr/bin/python
+# -*- coding: utf-8 -*-
 import logging,logging.handlers
 from cloghandler import ConcurrentRotatingFileHandler
-import re,platform,os,json,datetime
+import re,platform,os,json,datetime,time
+from IPy import IP
+import ipdb
 
+# split file and path
 __conf_dir = os.path.join(os.path.split(__file__)[0],"../cfg/conf_global.json")
 with open(__conf_dir,'r') as f:
 	__conf = json.loads(f.read())
@@ -78,4 +83,120 @@ def get_time_config():
 		"interval": datetime.timedelta(minutes = time_config["interval"]),
 		"offset": datetime.timedelta(seconds = time_config["offset"])
 	}
-	
+
+# get local intel_source file path
+def get_intel_path():
+	# ./security/ccbots/intel_source/source.rule
+	fpath = os.path.join(os.path.split(__file__)[0], "../../intel_source/source.rule")
+	return fpath
+
+# read intel_source file
+# def read_intel():
+# 	fpath=get_intel_path()
+# 	# get modified time
+# 	# mt = time.ctime(os.stat(fpath).st_mtime)
+# 	all_lis = []
+# 	with open(fpath, "r") as fp:
+# 		times = 0
+# 		while 1:
+# 			fline = fp.readline()
+# 			b = fline.replace("\n", "")
+# 			try:
+# 				b=b.strip()
+# 				c = json.loads(b[0:-1], encoding="utf-8")
+# 				#print type(c)
+# 				all_lis.append(c)
+# 			except Exception, e:
+# 				if (b == ''):
+# 					break
+# 	return all_lis
+
+
+# 比较两个文件的更新时间,(remote-local)大于deltaT（单位秒，默认值1）则返回True;
+# localfile：本地文件路径； remotefile：远程文件路径; deltaT: 时间差;
+def cmp_file_mtime(localfile,remotefile,deltaT=1):
+	lmt=time.mktime(time.gmtime(os.stat(localfile).st_mtime))
+	rmt=time.mktime(time.gmtime(os.stat(remotefile).st_mtime))
+	if(lmt>rmt):# local>remote
+		return False
+	elif(int(rmt-lmt)>deltaT):# remote-local>deltaT
+		return True
+	else:
+		return False
+
+
+# get local ip segment info
+def get_local_ipsegment():
+	mylog = set_logger()
+	local_file = __conf["local_ip_dept"]
+	# read json file
+	try:
+		with open(local_file, 'r') as f:
+			local_ipseg = json.loads(f.read())
+	except Exception,e:
+		mylog.error("[Global_tools] Load ip_dept Error:{0}".format(e))
+		local_ipseg={}
+	return local_ipseg
+
+
+# 查 sip 部门信息
+def get_sip_dpInfo(sip,ipSeglist):
+	# get Personal IPs
+	infos=ipSeglist.get(sip,None)
+	if(infos is not None):
+		return infos
+	for keys,vals in ipSeglist.items():
+		if(sip in IP(keys)):
+			return vals
+	return ' '
+
+
+# get ipip dataset path
+def get_ipipGeo_path():
+	fpath= __conf["ipipGeo"]
+	return fpath
+
+# 利用IP IP库查询地理位置,接受参数 为单个ip 或 ip list
+# 注意编码格式： 输入是str或str list,而得到的结果是unicode编码。
+def ipipCheckGeo(ips):
+	mylog=set_logger()
+	iplis = []
+	# ipip查询仅接受unicode编码
+	if(type(ips) is unicode):
+		iplis.append(ips)
+	elif(type(ips) is str):
+		iplis.append(ips)
+	elif(type(ips) is list):
+		iplis=ips
+	else:
+		mylog.error("[global function] Input type Error in ipipCheckGeo().")
+		return 0
+	fpath=get_ipipGeo_path()
+	realpath = os.path.split(__file__)[0] + os.path.sep +".."+os.path.sep+ fpath
+	#print realpath
+	dbs = ipdb.City(realpath)
+	redic={}
+	for ip in iplis:
+		if(type(ip) is not unicode):
+			ip2=ip.decode()
+		else:
+			ip2=ip
+		try:
+			# encode，ipip查询仅接受unicode编码
+			tmp=dbs.find(ip2, "CN")
+			# newtmp=[]
+			# for ii in tmp:
+			# 	newtmp.append(ii.encode("utf-8"))
+			redic[ip]=tmp
+		except Exception,e:
+			mylog.error("[global function] Check IP by ipdb errors:{0}".format(e))
+	return redic
+
+def isOffline():
+	if __conf["offline"] == True:
+		return True
+	elif __conf["offline"] == False:
+		return False
+	else:
+		raise ValueError,"[global function] {0} not a bool".format(__conf["offline"])
+

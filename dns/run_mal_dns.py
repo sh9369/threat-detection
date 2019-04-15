@@ -3,7 +3,7 @@
 import os
 import time
 import datetime
-from conf import set_data_path,set_frequency,log,get_others_config
+from conf import set_data_path,set_frequency,log,get_others_config, is_offline
 import TrieSearch,merge_blacklist
 
 data_path = set_data_path()
@@ -31,7 +31,7 @@ def run():
     #beginTime = datetime.datetime.strptime(begin, '%Y-%m-%d %H:%M:%S')
     #print startTime
     log.info("[mal_dns] Running mal_dns detection.")
-    if others["offline"]:
+    if is_offline():
         log.info("[mal_dns] Enable offline , use default intelligence.")
     count = 0
     while True:
@@ -49,7 +49,7 @@ def run():
         blacklist_Trie_dir = os.path.join(data_path,'trie'+'-'+storeDate+".json")
         # print blacklist_Trie_dir
 
-        if  (not others["offline"]) and not ((os.path.exists(blacklist_dir) and os.path.exists(blacklist_Trie_dir))):
+        if  (not is_offline()) and not ((os.path.exists(blacklist_dir) and os.path.exists(blacklist_Trie_dir))):
             store_run(storeDate)
 
         try:
@@ -58,7 +58,7 @@ def run():
             gte = (startTime-delta-offset).strftime('%Y-%m-%d %H:%M:%S')
             lte = (startTime-offset).strftime('%Y-%m-%d %H:%M:%S')
 
-            if time.daylight == 0:
+            if time.localtime(time.time())[8] == 0:
                 time_zone = "%+03d:%02d" % (-(time.timezone/3600),time.timezone%3600/3600.0*60)
             else:
                 time_zone = "%+03d:%02d" % (-(time.altzone/3600),time.altzone%3600/3600.0*60)

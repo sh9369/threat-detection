@@ -9,6 +9,8 @@ import time
 import datetime
 import blacklist_tools,parser_config
 from global_tools import set_logger
+from global_tools import get_sip_dpInfo
+from global_tools import get_local_ipsegment,ipipCheckGeo
 
 # !/usr/bin/python
 # -*- coding: utf-8 -*-
@@ -282,19 +284,31 @@ class ESclient(object):
 '''
 searchAndInsert:1)modified the record (level:warning,add sip)
                 2)insert to es
-alerts: the alerts infomation
+alerts: the alerts information
 ipdict: dip after second check,and it's reference sip
 '''
 def searchAndInsert(alerts,ipdict,es,mylog):
     alert_dip=alerts.keys()
     warning_dip=ipdict.keys()
+    dept_info=get_local_ipsegment()
     #mylog.info('start second check insert.')
     for tmp in warning_dip:
         if(tmp in alert_dip):# make sure that dip in alerts
+            dd = ipipCheckGeo(tmp)
+            dip_cnty = dd[tmp][0]
+            dip_provs = dd[tmp][1]
+            dip_citys = dd[tmp][2]
             for tsip in ipdict[tmp]:# insert sip/dip to es
                 doc=alerts[tmp]
                 doc['level']="warn"
                 doc['sip']=tsip
+                doc['src_dept']=get_sip_dpInfo(tsip,dept_info)
+                # es接受unicode编码格式
+                doc['dst_country']=dip_cnty
+                doc['dst_province']=dip_provs
+                doc['dst_city'] = dip_citys
+                doc['eventid'] = 102001
+                # doc['dst_city']
                 es.es_index(doc)
                 #mylog.info('insert WARNING!!!')
     #mylog.info('second check insert finished.')

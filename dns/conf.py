@@ -14,7 +14,7 @@ with open(__conf_dir,'r') as f:
 
 # Set store path .
 def set_data_path():
-	return os.path.abspath(os.path.join(os.path.split(__file__)[0],"data/"))
+	return os.path.join(os.path.dirname(os.path.abspath(__file__)),"data")
 # print set_data_path()
 
 #############################################################################################################################        
@@ -52,7 +52,7 @@ ES_config["tcp_index"] = __conf["index"]["tcp"]
 	
 ES_client = get_es_client()
 
-############################################################################################################################
+#############################################################################################################################
 
 syslogger = get_syslog_config()
 
@@ -60,5 +60,18 @@ def get_others_config():
 	return __conf["others"]
 # print get_others_config()
 
+#############################################################################################################################
+def get_dept_info(sip):
+	localIPSegment = get_local_ipsegment()
+	return get_sip_dpInfo(sip,localIPSegment)
 
+def get_ipip_geo(dip):
+	ipipGeo = ipipCheckGeo(dip.encode("utf-8"))
+	return ipipGeo[dip]
 
+def is_offline():
+	try:
+		return isOffline()
+	except Exception as e:
+		log.error(e)
+		raise e

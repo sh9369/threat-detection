@@ -2,7 +2,7 @@
 	"log": {
 		"level": "info"
 	},
-
+	"offline": false,
 	"es_server": {
 		"server": "localhost",
 		"port": 9200,
@@ -24,6 +24,8 @@
 		"startTime":"now",
 		"interval":5,
 		"offset":0
-	}
+	},
+	"ipipGeo":"global_data/ipipfree.ipdb",
+  	"local_ip_dept":"global_data/dept.json"
 }
 
